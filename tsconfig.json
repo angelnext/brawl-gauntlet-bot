@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "module": "nodenext",
+    "target": "es2017"
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

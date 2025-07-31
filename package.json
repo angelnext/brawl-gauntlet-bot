@@ -1,0 +1,13 @@
+{
+	"name": "brawlgauntlet",
+	"type": "module",
+	"main": "index.js",
+	"dependencies": {
+		"@rubiks/rubiks": "npm:@jsr/rubiks__rubiks@^1.2.9",
+		"better-sqlite3": "^11.1.2",
+		"discord.js": "^14.14.1",
+		"fast-glob": "^3.3.2",
+		"pagination.djs": "^4.0.17",
+		"quick.db": "^9.1.7"
+	}
+}
