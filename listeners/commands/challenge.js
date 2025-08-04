@@ -64,7 +64,7 @@ export const run = async (interaction) => {
 		await interaction.reply({
 			embeds: [
 				embeds.error(
-					`${interaction.user} you can't challenge ${user.username} because he is in a game at the moment.`,
+					`${interaction.user} you can't challenge ${user.username} because they are in a game at the moment.`,
 				),
 			],
 		});
