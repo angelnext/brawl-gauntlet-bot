@@ -6,10 +6,12 @@ import {
 	Events,
 } from "discord.js";
 import { db } from "../../utils/database.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
+import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {ButtonEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("accept_gauntlet")) return;
@@ -34,15 +36,15 @@ export const run = async (interaction) => {
 
 	interaction.deferUpdate();
 
-	const user = await interaction.guild.members.fetch(userId);
+	const member = await interaction.guild?.members.fetch(userId);
 
-	const channelId = await db.get(`${interaction.guildId}-draft_channel`);
+	const channelId = await db.get(`${interaction.guildId}.draftChannel`);
 
 	const channel = await interaction.guild?.channels.fetch(channelId);
 
-	const thread = await channel.threads.create({
-		name: `${user.user.username}-vs-${interaction.user.username}`,
-		reason: `A duel between ${user.user.username} vs ${interaction.user.username} will take place in this thread`,
+	const thread = await channel?.threads.create({
+		name: `${member?.user.username}-vs-${interaction.user.username}`,
+		reason: `A duel between ${member?.user.username} vs ${interaction.user.username} will take place in this thread`,
 	});
 
 	const embed = new EmbedBuilder()
@@ -54,24 +56,24 @@ export const run = async (interaction) => {
 		.setColor(0xffffff);
 
 	const draftButton = new ButtonBuilder()
-		.setCustomId(`start_draft-${user.user.id}-${interaction.user.id}`)
+		.setCustomId(`start_draft-${member?.user.id}-${interaction.user.id}`)
 		.setLabel("Manage Game")
 		.setStyle(ButtonStyle.Success);
 
 	const draftRow = new ActionRowBuilder().addComponents(draftButton);
 
-	await thread.send(`${user.user} vs ${interaction.user}`);
+	await thread.send(`${member?.user} vs ${interaction.user}`);
 	await thread.send({ embeds: [embed], components: [draftRow] });
 
-	const row = interaction.message.components[0];
-	row.components = row.components.map((button) =>
-		ButtonBuilder.from(button).setDisabled(true),
-	);
+	const row = setAllButtonsToDisabled(interaction.message.components[0]);
 
 	await interaction.message.edit({ components: [row] });
 
-	await db.set(`${interaction.guildId}-${user.id}-in_game`, true);
-	await db.set(`${interaction.guildId}-${interaction.user.id}-in_game`, true);
+	await db.set(`${interaction.guildId}.users.${member?.id}.inGame`, true);
+	await db.set(
+		`${interaction.guildId}.users.${interaction.user.id}.inGame`,
+		true,
+	);
 
 	return true;
 };

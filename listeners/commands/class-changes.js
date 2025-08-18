@@ -7,11 +7,11 @@ import { db } from "../../utils/database.js";
 import * as embeds from "../../utils/embeds.js";
 
 export const on = new SlashCommandBuilder()
-	.setName("banned-brawlers")
+	.setName("class-changes")
 	.addSubcommand((subcommand) =>
 		subcommand
 			.setName("list")
-			.setDescription("Lists all of the Banned Brawlers"),
+			.setDescription("Lists all of the brawlers with changed classes"),
 	)
 	.addSubcommand((subcommand) =>
 		subcommand
@@ -36,7 +36,7 @@ export const on = new SlashCommandBuilder()
 					.setRequired(true),
 			),
 	)
-	.setDescription("Brawler Bans Manager");
+	.setDescription("Brawler Class Changes Manager");
 
 /** @type { SlashCommand } */
 export const run = async (interaction) => {
@@ -55,8 +55,8 @@ export const run = async (interaction) => {
 
 /** @type { SlashSubcommand<boolean> } */
 const list = async (interaction) => {
-	const brawlers = /** @type { BannedBrawlers } */ (
-		(await db.get(`${interaction.guildId}.bannedBrawlers`)) || []
+	const brawlers = /** @type { ChangedClassBrawlers } */ (
+		(await db.get(`${interaction.guildId}.changedClassBrawlers`)) || []
 	);
 
 	interaction.reply({
@@ -66,13 +66,13 @@ const list = async (interaction) => {
 					name: interaction.guild?.name,
 					iconURL: interaction.guild?.iconURL(),
 				})
-				.setTitle("Banned Brawlers")
+				.setTitle("Brawlers with changed classes")
 				.setColor(0xffffff)
 				.setTimestamp(new Date())
 				.setDescription(
 					brawlers?.length !== 0
 						? `${brawlers.map((b) => "- ".concat(b)).join("\n")}`
-						: "No brawlers banned!",
+						: "No brawlers found!",
 				),
 		],
 	});
@@ -95,15 +95,15 @@ const remove = async (interaction) => {
 	const brawler = interaction.options.getString("name");
 
 	if (!brawler) {
-		await db.delete(`${interaction.guildId}.bannedBrawlers`);
+		await db.delete(`${interaction.guildId}.changedClassBrawlers`);
 		await interaction.reply({
-			content: "Removed every banned brawler off the list",
+			content: "Removed every brawler off the list",
 			ephemeral: true,
 		});
 		return true;
 	}
 
-	await db.pull(`${interaction.guildId}.bannedBrawlers`, brawler);
+	await db.pull(`${interaction.guildId}.changedClassBrawlers`, brawler);
 
 	await interaction.reply({
 		content: `Removed the brawler "${brawler}" off the list`,
@@ -127,7 +127,7 @@ const add = async (interaction) => {
 
 	const brawlers = interaction.options.getString("brawlers", true)?.split(",");
 
-	await db.push(`${interaction.guildId}.bannedBrawlers`, ...brawlers);
+	await db.push(`${interaction.guildId}.changedClassBrawlers`, ...brawlers);
 
 	await interaction.reply({
 		content: `Added the brawlers ${new Intl.ListFormat("en").format(brawlers)}`,

@@ -1,7 +1,7 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
+import { run as challenge } from "./challenge.js";
 import { run as leaderboard } from "./leaderboard.js";
 import { run as profile } from "./profile.js";
-import { run as challenge } from "./challenge.js";
 
 export const on = new SlashCommandBuilder()
 	.setName("gauntlet")
@@ -45,7 +45,7 @@ export const on = new SlashCommandBuilder()
 	)
 	.setDescription("Map manager");
 
-/** @param interaction {ChatInputCommandInteraction}  **/
+/** @type { SlashCommand } **/
 export const run = async (interaction) => {
 	const subcommands = {
 		profile,
@@ -53,7 +53,11 @@ export const run = async (interaction) => {
 		challenge,
 	};
 
-	subcommands[interaction.options.getSubcommand(true)]?.(interaction);
+	const subcommand = /** @type { keyof subcommands } */ (
+		interaction.options.getSubcommand(true)
+	);
+
+	subcommands[subcommand]?.(interaction);
 
 	return true;
 };

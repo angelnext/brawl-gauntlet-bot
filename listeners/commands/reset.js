@@ -6,28 +6,41 @@ export const on = new SlashCommandBuilder()
 	.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 	.setDescription("Reset everybody's elo");
 
+/** @type {SlashCommand}  */
 export const run = async (interaction) => {
 	await interaction.deferReply({ ephemeral: true });
 
-	await db.delete(`${interaction.guildId}-games_played`);
-	await db.delete(`${interaction.guildId}-games_won`);
+	const users = /** @type { Users } */ (
+		(await db.get(`${interaction.guildId}.users`)) || {}
+	);
 
-	const all = (await db.get(`${interaction.guildId}-elo`)) ?? {};
+	const positionings = Object.entries(users).sort((a, b) => {
+		const eloA = a[1].elo || 0;
+		const eloB = b[1].elo || 0;
 
-	const positionings = Object.entries(all).sort(([, a], [, b]) => b - a);
-
-	positionings.forEach(async ([id], index) => {
-		const highest =
-			(await db.get(`${interaction.guildId}-${id}-max_position`)) ??
-			positionings.length;
-
-		await db.set(`${interaction.guildId}-${id}-last_pos`, index + 1);
-
-		if (highest > index + 1)
-			await db.set(`${interaction.guildId}-${id}-max_position`, index + 1);
+		return eloB - eloA;
 	});
 
-	await db.delete(`${interaction.guildId}-elo`);
+	for (const [index, [id]] of positionings.entries()) {
+		await db.set(`${interaction.guildId}.users.${id}.elo`, 0);
+		await db.set(`${interaction.guildId}.users.${id}.winstreak`, 0);
+		await db.set(`${interaction.guildId}.users.${id}.seasonGames`, {
+			played: 0,
+			won: 0,
+		});
+
+		const highestPos = /** @type { number } */ (
+			(await db.get(`${interaction.guildId}.users.${id}.highestPosition`)) ??
+				Infinity
+		);
+
+		if (highestPos > index + 1) {
+			await db.set(
+				`${interaction.guildId}.users.${id}.highestPosition`,
+				index + 1,
+			);
+		}
+	}
 
 	await interaction.editReply({
 		content: "Done! Everybody's ELO has been reset to 0",

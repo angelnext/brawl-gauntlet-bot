@@ -2,35 +2,33 @@ import {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
-	ChatInputCommandInteraction,
 	EmbedBuilder,
 	MessageFlags,
 	User,
 } from "discord.js";
-import { embeds } from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
-/** @param {ChatInputCommandInteraction} interaction */
+/** @type { SlashCommand } */
 export const run = async (interaction) => {
-	const member = interaction.options.getMember("user", true);
+	const member = interaction.options.getMember("user");
 
 	if (!member) {
 		await interaction.reply({
 			embeds: [embeds.error("You can't challenge somebody outside the server")],
 			flags: [MessageFlags.Ephemeral],
 		});
-		return;
+		return true;
 	}
 
-	/** @type {User} */
-	const user = member.user;
+	const user = /** @type {User} */ (member.user);
 
 	if (user.id === interaction.user.id) {
 		await interaction.reply({
 			embeds: [embeds.error("You can't challenge yourself!")],
 			flags: [MessageFlags.Ephemeral],
 		});
-		return;
+		return true;
 	}
 
 	if (user.bot) {
@@ -38,11 +36,11 @@ export const run = async (interaction) => {
 			embeds: [embeds.error("You can't challenge a bot!")],
 			flags: [MessageFlags.Ephemeral],
 		});
-		return;
+		return true;
 	}
 
-	const challengerIsInGame = await db.get(
-		`${interaction.guildId}-${interaction.user.id}-in_game`,
+	const challengerIsInGame = /** @type { boolean } */ (
+		await db.get(`${interaction.guildId}.users.${interaction.user.id}.inGame`)
 	);
 
 	if (challengerIsInGame) {
@@ -53,11 +51,11 @@ export const run = async (interaction) => {
 				),
 			],
 		});
-		return;
+		return true;
 	}
 
-	const challengedIsInGame = await db.get(
-		`${interaction.guildId}-${user.id}-in_game`,
+	const challengedIsInGame = /** @type { boolean } */ (
+		await db.get(`${interaction.guildId}.users.${user.id}.inGame`)
 	);
 
 	if (challengedIsInGame) {
@@ -68,7 +66,7 @@ export const run = async (interaction) => {
 				),
 			],
 		});
-		return;
+		return true;
 	}
 
 	const embed = new EmbedBuilder()

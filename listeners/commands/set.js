@@ -42,9 +42,9 @@ export const on = new SlashCommandBuilder()
 			.setRequired(true),
 	);
 
+/** @type { SlashCommand } */
 export const run = async (interaction) => {
 	const user = interaction.options.getUser("user", true);
-	const value = interaction.options.getString("value", true);
 	const amount = interaction.options.getInteger("amount", true);
 
 	const values = {
@@ -60,7 +60,11 @@ export const run = async (interaction) => {
 		gamesManaged,
 	};
 
-	await values[value](interaction, user, amount);
+	const value = /** @type { keyof values } */ (
+		interaction.options.getString("value", true)
+	);
+
+	await values[value](interaction, { user, amount });
 
 	const result = value.replace(/([A-Z])/g, " $1");
 	const finalResult = result.charAt(0).toUpperCase() + result.slice(1);
@@ -69,51 +73,90 @@ export const run = async (interaction) => {
 		content: `${finalResult} from <@${user.id}> has been set to ${amount}`,
 		ephemeral: true,
 	});
+
+	return true;
 };
 
-const elo = async (interaction, user, amount) => {
-	const highestELO =
-		(await db.get(`${interaction.guildId}-${user.id}-max_elo`)) || 0;
+/**
+ * Options for the set command
+ * @typedef {{ user: import("discord.js").User, amount: number }} SetOptions
+ * */
 
-	await db.set(`${interaction.guildId}-elo.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const elo = async (interaction, { user, amount }) => {
+	const highestElo = /** @type {number} */ (
+		(await db.get(`${interaction.guildId}.users.${user.id}.highestElo`)) || 0
+	);
 
-	if (amount > highestELO) {
-		await db.set(`${interaction.guildId}-${user.id}-max_elo`, amount);
+	await db.set(`${interaction.guildId}.users.${user.id}.elo`, amount);
+
+	if (amount > highestElo) {
+		await db.set(`${interaction.guildId}.users.${user.id}.highestElo`, amount);
 	}
 };
 
-const maxElo = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-${user.id}-max_elo`, amount);
+/** @type { SlashOption<SetOptions> } */
+const maxElo = async (interaction, { user, amount }) => {
+	await db.set(`${interaction.guildId}.users.${user.id}.highestElo`, amount);
 };
 
-const gamesPlayed = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-games_played.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const gamesPlayed = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.seasonGames.played`,
+		amount,
+	);
 };
 
-const gamesWon = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-games_won.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const gamesWon = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.seasonGames.won`,
+		amount,
+	);
 };
 
-const totalGamesPlayed = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-total_games_played.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const totalGamesPlayed = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.totalGames.played`,
+		amount,
+	);
 };
 
-const totalGamesWon = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-total_games_won.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const totalGamesWon = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.totalGames.won`,
+		amount,
+	);
 };
 
-const semisAppearances = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-${user.id}-a_semis`, amount);
+/** @type { SlashOption<SetOptions> } */
+const semisAppearances = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.tournament.semifinals`,
+		amount,
+	);
 };
 
-const finalsAppearances = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-${user.id}-a_finals`, amount);
+/** @type { SlashOption<SetOptions> } */
+const finalsAppearances = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.tournament.finals`,
+		amount,
+	);
 };
 
-const wonTournaments = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-${user.id}-a_winner`, amount);
+/** @type { SlashOption<SetOptions> } */
+const wonTournaments = async (interaction, { user, amount }) => {
+	await db.set(
+		`${interaction.guildId}.users.${user.id}.tournament.won`,
+		amount,
+	);
 };
 
-const gamesManaged = async (interaction, user, amount) => {
-	await db.set(`${interaction.guildId}-managers.${user.id}`, amount);
+/** @type { SlashOption<SetOptions> } */
+const gamesManaged = async (interaction, { user, amount }) => {
+	await db.set(`${interaction.guildId}.managers.${user.id}.games`, amount);
 };

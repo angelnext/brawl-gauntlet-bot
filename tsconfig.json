@@ -4,9 +4,18 @@
     "allowJs": true,
     "checkJs": true,
     "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "noEmit": true,
     "module": "nodenext",
-    "target": "es2017"
+    "target": "es2017",
+    "strict": true,
+    "lib": [
+      "ES2023"
+    ]
   },
+  "include": [
+    "."
+  ],
   "exclude": [
     "node_modules"
   ]

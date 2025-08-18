@@ -19,8 +19,11 @@ import { log } from "./logger.js";
 /** @type {Collection<string, [SlashCommandBuilder | ContextMenuCommandBuilder, runFn]>} */
 export const commands = new Collection();
 
-/** @param {Client} client */
-export async function setListeners(client) {
+/**
+ * @function setListeners Add all listeners into their respective location (the commands Collection for Commands, turn it into a client event for Events
+ * @param {Client} client The user client used to register the client events
+ */
+export const setListeners = async (client) => {
 	const files = await fg([join(process.cwd(), "listeners/**/*.js")]);
 
 	for (const file of files) {
@@ -56,4 +59,4 @@ export async function setListeners(client) {
 			}
 		});
 	}
-}
+};

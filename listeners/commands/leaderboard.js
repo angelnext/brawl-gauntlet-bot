@@ -1,25 +1,33 @@
 import { EmbedBuilder } from "discord.js";
-import { db } from "../../utils/database.js";
 import { Pagination } from "pagination.djs";
+import { db } from "../../utils/database.js";
+import { getRankIcon } from "../../utils/ranks.js";
 
+/** @type { SlashSubcommand<boolean> } */
 export const run = async (interaction) => {
-	const type = interaction.options.getString("type") || "gauntletLeaderboard";
-
 	const leaderboards = {
 		gauntletLeaderboard,
 		gamesPlayedLeaderboard,
 		managersLeaderboard,
 	};
 
+	const type = /** @type { keyof leaderboards } */ (
+		interaction.options.getString("type") || "gauntletLeaderboard"
+	);
+
 	await interaction.deferReply();
 
-	await leaderboards[type](interaction);
+	await leaderboards[type](interaction, undefined);
 
 	return true;
 };
 
+/** @type { SlashOption } */
 const gauntletLeaderboard = async (interaction) => {
-	const all = (await db.get(`${interaction.guildId}-elo`)) ?? {};
+	const users = /** @type { Users } */ (
+		(await db.get(`${interaction.guildId}.users`)) || {}
+	);
+
 	const pagination = new Pagination(interaction, {
 		limit: 10,
 		idle: 86400000,
@@ -27,14 +35,21 @@ const gauntletLeaderboard = async (interaction) => {
 
 	const positionings = (
 		await Promise.all(
-			Object.entries(all)
-				.sort(([, a], [, b]) => b - a)
-				.map(async (p) => [
-					await interaction.guild.members.fetch(p[0]).catch(() => {}),
-					p[1],
-				]),
+			Object.entries(users)
+				.sort((a, b) => {
+					const eloA = a[1].elo || 0;
+					const eloB = b[1].elo || 0;
+
+					return eloB - eloA;
+				})
+				.map(async (p) => ({
+					member: await interaction.guild?.members
+						.fetch(p[0])
+						.catch(() => null),
+					user: p[1],
+				})),
 		)
-	).filter((p) => !!p[0]);
+	).filter((p) => !!p.member);
 
 	const embeds = [];
 	let temporal = [];
@@ -44,76 +59,44 @@ const gauntletLeaderboard = async (interaction) => {
 		temporal.push(p);
 
 		if ((Number(i) + 1) % 10 === 0) {
-			embeds.push(
-				new EmbedBuilder()
-					.setTitle("Season Leaderboard")
-					.setColor(0xffffff)
-					.setFields(
-						(
-							await Promise.all(
-								temporal.map(async (p) => {
-									const [user, elo] = p;
-									const rank =
-										elo >= 2000
-											? "<:god:1310729948897476679>"
-											: elo >= 1500
-												? "<:mythical:1310729943428370512>"
-												: elo >= 1000
-													? "<:legendary:1310729946414448740>"
-													: elo >= 700
-														? "<:mythic:1310745459735920771>"
-														: elo >= 400
-															? "<:gold:1310729947618218066>"
-															: elo >= 200
-																? "<:silver:1310729940760531015>"
-																: "<:bronze:1310729890340929636>";
+			const newEmbed = new EmbedBuilder()
+				.setTitle("Season Leaderboard")
+				.setColor(0xffffff)
+				.setFields(
+					temporal.flatMap(({ member, user }) => {
+						const { elo = 0, winstreak = 0, seasonGames } = user;
+						const rank = getRankIcon(elo);
 
-									const playedGames =
-										(await db.get(
-											`${interaction.guildId}-games_played.${user?.id}`,
-										)) || 0;
-									const wonGames =
-										(await db.get(
-											`${interaction.guildId}-games_won.${user?.id}`,
-										)) || 0;
-									const winstreak =
-										(await db.get(
-											`${interaction.guildId}-winstreak.${user?.id}`,
-										)) || 0;
+						const winrate =
+							(100 * (seasonGames?.won || 0)) / (seasonGames?.played || 0);
 
-									const ind = positionings.findIndex(
-										(po) => po[0].id === user.id,
-									);
+						const ind = positionings.findIndex(
+							(po) => po.member?.id === member?.id,
+						);
 
-									if ((ind + 1) % 2 === 0) {
-										return [
-											{
-												name: `${ind + 1}. ${user?.displayName}`,
-												value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${playedGames}\nWin Rate: ${Math.round(
-													Number.isNaN((100 * wonGames) / playedGames)
-														? 0
-														: (100 * wonGames) / playedGames,
-												)}%`,
-												inline: true,
-											},
-											{ name: "", value: "" },
-										];
-									}
+						if ((ind + 1) % 2 === 0) {
+							return [
+								{
+									name: `${ind + 1}. ${member?.displayName}`,
+									value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${seasonGames?.played || 0}\nWin Rate: ${Math.round(
+										Number.isNaN(winrate) ? 0 : winrate,
+									)}%`,
+									inline: true,
+								},
+								{ name: "", value: "" },
+							];
+						}
 
-									return {
-										name: `${ind + 1}. ${user?.displayName}`,
-										value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${playedGames}\nWin Rate: ${Math.round(
-											Number.isNaN((100 * wonGames) / playedGames)
-												? 0
-												: (100 * wonGames) / playedGames,
-										)}%`,
-										inline: true,
-									};
-								}),
-							)
-						).flat(),
-					),
-			);
+						return {
+							name: `${ind + 1}. ${member?.displayName}`,
+							value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${seasonGames?.played || 0}\nWin Rate: ${Math.round(
+								Number.isNaN(winrate) ? 0 : winrate,
+							)}%`,
+							inline: true,
+						};
+					}),
+				);
+			embeds.push(newEmbed);
 
 			temporal = [];
 		}
@@ -124,67 +107,38 @@ const gauntletLeaderboard = async (interaction) => {
 			.setTitle("Season Leaderboard")
 			.setColor(0xffffff)
 			.setFields(
-				(
-					await Promise.all(
-						temporal.map(async (p) => {
-							const [user, elo] = p;
-							const rank =
-								elo >= 2000
-									? "<:god:1310729948897476679>"
-									: elo >= 1500
-										? "<:mythical:1310729943428370512>"
-										: elo >= 1000
-											? "<:legendary:1310729946414448740>"
-											: elo >= 700
-												? "<:mythic:1310745459735920771>"
-												: elo >= 400
-													? "<:gold:1310729947618218066>"
-													: elo >= 200
-														? "<:silver:1310729940760531015>"
-														: "<:bronze:1310729890340929636>";
+				temporal.flatMap(({ member, user }) => {
+					const { elo = 0, winstreak = 0, seasonGames } = user;
+					const rank = getRankIcon(elo);
 
-							const playedGames =
-								(await db.get(
-									`${interaction.guildId}-games_played.${user?.id}`,
-								)) || 0;
-							const wonGames =
-								(await db.get(
-									`${interaction.guildId}-games_won.${user?.id}`,
-								)) || 0;
-							const winstreak =
-								(await db.get(
-									`${interaction.guildId}-winstreak.${user?.id}`,
-								)) || 0;
+					const winrate =
+						(100 * (seasonGames?.won || 0)) / (seasonGames?.played || 0);
 
-							const ind = positionings.findIndex((po) => po[0].id === user.id);
+					const ind = positionings.findIndex(
+						(po) => po.member?.id === member?.id,
+					);
 
-							if ((ind + 1) % 2 === 0) {
-								return [
-									{
-										name: `${ind + 1}. ${user?.displayName}`,
-										value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${playedGames}\nWin Rate: ${Math.round(
-											Number.isNaN((100 * wonGames) / playedGames)
-												? 0
-												: (100 * wonGames) / playedGames,
-										)}%`,
-										inline: true,
-									},
-									{ name: "", value: "" },
-								];
-							}
-
-							return {
-								name: `${ind + 1}. ${user?.displayName}`,
-								value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${playedGames}\nWin Rate: ${Math.round(
-									Number.isNaN((100 * wonGames) / playedGames)
-										? 0
-										: (100 * wonGames) / playedGames,
+					if ((ind + 1) % 2 === 0) {
+						return [
+							{
+								name: `${ind + 1}. ${member?.displayName}`,
+								value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${seasonGames?.played || 0}\nWin Rate: ${Math.round(
+									Number.isNaN(winrate) ? 0 : winrate,
 								)}%`,
 								inline: true,
-							};
-						}),
-					)
-				).flat(),
+							},
+							{ name: "", value: "" },
+						];
+					}
+
+					return {
+						name: `${ind + 1}. ${member?.displayName}`,
+						value: `ELO: ${elo}\nRank: ${rank}\nWinstreak: ${winstreak}\nGames Played: ${seasonGames?.played || 0}\nWin Rate: ${Math.round(
+							Number.isNaN(winrate) ? 0 : winrate,
+						)}%`,
+						inline: true,
+					};
+				}),
 			),
 	);
 
@@ -195,20 +149,30 @@ const gauntletLeaderboard = async (interaction) => {
 	pagination.render();
 };
 
+/** @type { SlashOption } */
 const gamesPlayedLeaderboard = async (interaction) => {
-	const all = (await db.get(`${interaction.guildId}-total_games_played`)) ?? {};
+	const users = /** @type { Users } */ (
+		(await db.get(`${interaction.guildId}.users`)) || {}
+	);
 
 	const positionings = (
 		await Promise.all(
-			Object.entries(all)
-				.sort(([, a], [, b]) => b - a)
-				.slice(0, 33)
-				.map(async (p) => [
-					await interaction.guild.members.fetch(p[0]).catch(() => {}),
-					p[1],
-				]),
+			Object.entries(users)
+				.sort((a, b) => {
+					const eloA = a[1].totalGames?.played || 0;
+					const eloB = b[1].totalGames?.played || 0;
+
+					return eloB - eloA;
+				})
+				.slice(0, 20)
+				.map(async (p) => ({
+					member: await interaction.guild?.members
+						.fetch(p[0])
+						.catch(() => null),
+					user: p[1],
+				})),
 		)
-	).filter((p) => !!p[0]);
+	).filter((p) => !!p.member);
 
 	await interaction.editReply({
 		embeds: [
@@ -216,87 +180,61 @@ const gamesPlayedLeaderboard = async (interaction) => {
 				.setTitle("Games Played Leaderboard")
 				.setColor(0xffffff)
 				.setDescription(
-					(
-						await Promise.all(
-							positionings.map(async (p, i) => {
-								const [user] = p;
-								const elo =
-									(await db.get(`${interaction.guildId}-${user.id}-max_elo`)) ||
-									0;
+					positionings
+						.map(({ member, user }, i) => {
+							const { highestElo = 0, totalGames, highestWinstreak = 0 } = user;
 
-								const rank =
-									elo >= 2000
-										? "<:god:1310729948897476679>"
-										: elo >= 1500
-											? "<:mythical:1310729943428370512>"
-											: elo >= 1200
-												? "<:legendary:1310729946414448740>"
-												: elo >= 900
-													? "<:mythic:1310745459735920771>"
-													: elo >= 600
-														? "<:gold:1310729947618218066>"
-														: elo >= 300
-															? "<:silver:1310729940760531015>"
-															: "<:bronze:1310729890340929636>";
+							const totalWinrate =
+								(100 * (totalGames?.won || 0)) / (totalGames?.played || 0);
 
-								const playedGames =
-									(await db.get(
-										`${interaction.guildId}-total_games_played.${user?.id}`,
-									)) || 0;
-								const wonGames =
-									(await db.get(
-										`${interaction.guildId}-total_games_won.${user?.id}`,
-									)) || 0;
-								const winstreak =
-									(await db.get(
-										`${interaction.guildId}-max_winstreak.${user?.id}`,
-									)) || 0;
+							const rank = getRankIcon(highestElo);
 
-								return `**${i + 1}. ${user?.displayName}**Total Games Played: ${playedGames}\nHighest ELO: ${elo}\nHighest Rank: ${rank}\nHighest Winstreak: ${winstreak}\nCareer Win Rate: ${Math.round(
-									Number.isNaN((100 * wonGames) / playedGames)
-										? 0
-										: (100 * wonGames) / playedGames,
-								)}%`;
-							}),
-						)
-					).join("\n") || "No Games Played yet!",
+							return `**${i + 1}. ${member?.displayName}**Total Games Played: ${user.totalGames?.played}\nHighest ELO: ${highestElo}\nHighest Rank: ${rank}\nHighest Winstreak: ${highestWinstreak}\nCareer Win Rate: ${Math.round(
+								Number.isNaN(totalWinrate) ? 0 : totalWinrate,
+							)}%`;
+						})
+						.join("\n") || "No Games Played yet!",
 				),
 		],
 	});
 };
 
+/** @type { SlashOption } */
 const managersLeaderboard = async (interaction) => {
-	const all = (await db.get(`${interaction.guildId}-managers`)) ?? {};
+	const managers = /** @type { Managers } */ (
+		(await db.get(`${interaction.guildId}.managers`)) || {}
+	);
 
 	const positionings = (
 		await Promise.all(
-			Object.entries(all)
-				.sort(([, a], [, b]) => b - a)
-				.map(async (p) => [
-					await interaction.guild.members.fetch(p[0]).catch(() => {}),
-					p[1],
-				]),
+			Object.entries(managers)
+				.sort((a, b) => {
+					const gamesA = a[1].games || 0;
+					const gamesB = b[1].games || 0;
+
+					return gamesB - gamesA;
+				})
+				.map(async (p) => ({
+					member: await interaction.guild?.members
+						.fetch(p[0])
+						.catch(() => null),
+					manager: p[1],
+				})),
 		)
-	).filter((p) => !!p[0]);
+	).filter((p) => !!p.member);
 
 	const embed = new EmbedBuilder()
 		.setTitle("Manager Leaderboard")
 		.setColor(0xffffff)
 		.setDescription(
-			(
-				await Promise.all(
-					positionings.map(async (p, i) => {
-						const [user, games] = p;
+			positionings
+				.map((p, i) => {
+					const { member, manager } = p;
 
-						return `${i + 1}. ${user?.displayName}: ${games} ${games === 1 ? "game" : "games"} managed`;
-					}),
-				)
-			).join("\n"),
+					return `${i + 1}. ${member?.displayName}: ${manager.games} ${manager.games === 1 ? "game" : "games"} managed`;
+				})
+				.join("\n") || "No games have been played yet!",
 		);
-
-	if (positionings.length < 1) {
-		embed.setDescription("No Games have been played yet!");
-	}
 
 	await interaction.editReply({ embeds: [embed] });
 };

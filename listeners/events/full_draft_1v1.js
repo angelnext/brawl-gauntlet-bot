@@ -1,20 +1,23 @@
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
-	ButtonComponent,
 	Events,
 	StringSelectMenuBuilder,
 } from "discord.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
 import { CLASSES } from "../../utils/consts.js";
+import { db } from "../../utils/database.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type { ButtonEvent } */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("full_draft_1v1")) return;
 
-	const [_, first, second, manager] = interaction.customId.split("-");
+	const { firstPlayer, manager } = /** @type { Duel } */ (
+		await db.get(`${interaction.guildId}.duels.${interaction.channel?.id}`)
+	);
 
 	if (interaction.user.id !== manager) {
 		interaction.reply({
@@ -25,13 +28,13 @@ export const run = async (interaction) => {
 	}
 
 	const classMenu = new StringSelectMenuBuilder()
-		.setCustomId(`firstban-${first}-${second}-${interaction.id}`)
+		.setCustomId(`firstban-${interaction.id}`)
 		.addOptions(CLASSES.map((c) => ({ label: c, value: c })));
 
 	const selectMenuActionRow = new ActionRowBuilder().addComponents(classMenu);
 
 	await interaction.reply({
-		content: `Select Class to Ban <@${first}>`,
+		content: `Select Class to Ban <@${firstPlayer}>`,
 		components: [selectMenuActionRow],
 	});
 

@@ -1,11 +1,11 @@
+import { join } from "node:path";
 import {
 	AttachmentBuilder,
 	PermissionFlagsBits,
 	SlashCommandBuilder,
 } from "discord.js";
 import { db } from "../../utils/database.js";
-import { embeds } from "../../utils/embeds.js";
-import { join } from "node:path";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = new SlashCommandBuilder()
 	.setName("maps")
@@ -40,6 +40,7 @@ export const on = new SlashCommandBuilder()
 	)
 	.setDescription("Map manager");
 
+/** @type {SlashCommand}  */
 export const run = async (interaction) => {
 	const subcommands = {
 		list,
@@ -48,13 +49,18 @@ export const run = async (interaction) => {
 		graphic,
 	};
 
-	subcommands[interaction.options.getSubcommand(true)]?.(interaction);
+	const subcommand = /** @type { keyof subcommands } */ (
+		interaction.options.getSubcommand(true)
+	);
 
-	return true;
+	return subcommands[subcommand]?.(interaction);
 };
 
+/** @type {SlashSubcommand<boolean>}  */
 const list = async (interaction) => {
-	const maps = (await db.get(`${interaction.guildId}-maps`)) || [];
+	const maps = /** @type {Maps} */ (
+		(await db.get(`${interaction.guildId}.maps`)) || []
+	);
 
 	interaction.reply({
 		content:
@@ -69,6 +75,7 @@ const list = async (interaction) => {
 	return true;
 };
 
+/** @type {SlashSubcommand<boolean>}  */
 const remove = async (interaction) => {
 	if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
 		await interaction.reply({
@@ -81,7 +88,7 @@ const remove = async (interaction) => {
 	const map = interaction.options.getString("name");
 
 	if (!map) {
-		await db.delete(`${interaction.guildId}-maps`);
+		await db.delete(`${interaction.guildId}.maps`);
 		await interaction.reply({
 			content: "Removed every map off the rotation",
 			ephemeral: true,
@@ -89,7 +96,7 @@ const remove = async (interaction) => {
 		return true;
 	}
 
-	await db.pull(`${interaction.guildId}-maps`, map);
+	await db.pull(`${interaction.guildId}.maps`, map);
 
 	await interaction.reply({
 		content: `Removed the map "${map}" off the rotation`,
@@ -99,6 +106,7 @@ const remove = async (interaction) => {
 	return true;
 };
 
+/** @type {SlashSubcommand<boolean>}  */
 const add = async (interaction) => {
 	if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
 		await interaction.reply({
@@ -110,17 +118,19 @@ const add = async (interaction) => {
 
 	const maps = interaction.options.getString("maps", true)?.split(",");
 
-	const currentMaps = (await db.get(`${interaction.guildId}-maps`)) ?? [];
+	const currentMaps = /** @type {Maps} */ (
+		(await db.get(`${interaction.guildId}.maps`)) ?? []
+	);
 
-	if (currentMaps.length >= 3) {
+	if (currentMaps.length >= 5) {
 		await interaction.reply({
-			content: "There's can only be 3 maps in rotation",
+			content: "There's can only be 5 maps in rotation",
 			ephemeral: true,
 		});
 		return true;
 	}
 
-	await db.push(`${interaction.guildId}-maps`, ...maps);
+	await db.push(`${interaction.guildId}.maps`, ...maps);
 
 	await interaction.reply({
 		content: `Added the maps ${new Intl.ListFormat("en").format(maps)}`,
@@ -130,8 +140,11 @@ const add = async (interaction) => {
 	return true;
 };
 
+/** @type {SlashSubcommand<boolean>}  */
 const graphic = async (interaction) => {
 	const attachment = new AttachmentBuilder(join(process.cwd(), "maps.png"));
 
 	await interaction.reply({ files: [attachment] });
+
+	return true;
 };

@@ -1,179 +1,198 @@
 import { ButtonBuilder, Events, time, TimestampStyles } from "discord.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
+import { LOG_CHANNEL, MANAGER_ROLE } from "../../utils/consts.js";
+import { getRankText } from "../../utils/ranks.js";
+import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {ButtonEvent} */
 export const run = async (interaction) => {
-	if (!interaction.isButton()) return;
-	if (!interaction.customId.startsWith("eval_proceed")) return;
+  if (!interaction.isButton()) return;
+  if (!interaction.customId.startsWith("eval_proceed")) return;
 
-	if (!interaction.member.roles.cache.has("1262159706047119401")) {
-		interaction.reply({
-			embeds: [
-				embeds.error(
-					"You aren't a Gauntlet Manager and therefore cannot evaluate a game",
-				),
-			],
-			ephemeral: true,
-		});
-		return;
-	}
+  if (!interaction.member.roles.cache.has(MANAGER_ROLE)) {
+    interaction.reply({
+      embeds: [
+        embeds.error(
+          "You aren't a Gauntlet Manager and therefore cannot evaluate a game",
+        ),
+      ],
+      ephemeral: true,
+    });
+    return;
+  }
 
-	await interaction.deferReply();
+  await interaction.deferReply();
 
-	const [_, w, l, s] = interaction.customId.split("-");
+  const { winner, loser, sweep, manager } = /** @type { Duel } */ (
+    (await db.get(`${interaction.guildId}.duels.${interaction.channelId}`)) ||
+    {}
+  );
 
-	const winner = await interaction.guild.members.fetch(w);
-	const loser = await interaction.guild.members.fetch(l);
+  await db.set(`${interaction.guildId}.users.${winner}.inGame`, false);
+  await db.set(`${interaction.guildId}.users.${loser}.inGame`, false);
 
-	await db.set(`${interaction.guildId}-${w}-in_game`, false);
-	await db.set(`${interaction.guildId}-${l}-in_game`, false);
+  const winnerUser = /** @type {DbUser} */ (
+    await db.get(`${interaction.guildId}.users.${winner}`)
+  );
+  const loserUser = /** @type {DbUser} */ (
+    await db.get(`${interaction.guildId}.users.${loser}`)
+  );
 
-	const sweep = s === "yes";
+  const playedGames = winnerUser?.seasonGames?.played || 0;
 
-	const highestELO =
-		(await db.get(`${interaction.guildId}-${winner.id}-max_elo`)) || 0;
+  const { elo: winnerElo = 0, winstreak = 0, highestElo = 0 } = winnerUser;
+  const { elo: loserElo = 0 } = loserUser;
 
-	const winnerELO =
-		(await db.get(`${interaction.guildId}-elo.${winner.id}`)) || 0;
-	const loserELO =
-		(await db.get(`${interaction.guildId}-elo.${loser.id}`)) || 0;
+  const playedBoost =
+    playedGames >= 100
+      ? 30
+      : playedGames >= 75
+        ? 25
+        : playedGames >= 60
+          ? 20
+          : playedGames >= 45
+            ? 15
+            : playedGames >= 30
+              ? 10
+              : playedGames >= 15
+                ? 5
+                : 0;
+  const newBoost = loserElo <= 100 ? 20 : 0;
 
-	const lastPos =
-		(await db.get(`${interaction.guildId}-${winner.id}-last_pos`)) || 32;
+  const difference = Math.round((winnerElo - loserElo) / 10);
+  const differenceBoost =
+    difference >= 70 ? 70 : difference <= -70 ? -70 : difference;
 
-	const top16boost =
-		lastPos <= 2
-			? 20
-			: lastPos <= 4
-				? 15
-				: lastPos <= 8
-					? 10
-					: lastPos <= 16
-						? 5
-						: 0;
+  const lostBase = 80 - differenceBoost;
+  const lost = Math.round(
+    ((sweep ? (lostBase * 120) / 100 : lostBase) * (100 - newBoost)) / 100,
+  );
 
-	const playedGames =
-		(await db.get(`${interaction.guildId}-games_played.${winner.id}`)) || 0;
+  const winnerBase = 100 - differenceBoost;
+  const winnerNew = Math.round(
+    ((sweep ? (winnerBase * 120) / 100 : winnerBase) *
+      (100 + playedBoost) *
+      (100 + (winstreak > 5 ? 5 : winstreak))) /
+    (100 * 100),
+  );
 
-	const playedBoost =
-		playedGames <= 15
-			? 5
-			: playedGames <= 30
-				? 10
-				: playedGames <= 45
-					? 15
-					: playedGames <= 60
-						? 20
-						: playedGames <= 75
-							? 25
-							: 30;
-	const newBoost = loserELO <= 100 ? 20 : 0;
+  const milestones = [200, 400, 700, 1000, 1500, 2000];
 
-	const difference = Math.round((winnerELO - loserELO) * 0.1);
-	const differenceBoost =
-		difference >= 70 ? 70 : difference <= -70 ? -70 : difference;
+  /**
+   * @function getMilestone
+   * @param { number} elo
+   * @returns { number } The milestone that belongs to that elo
+   */
+  const getMilestone = (elo) =>
+    Math.max(...milestones.filter((m) => elo >= m), 0);
 
-	const lostBase = 80 - differenceBoost;
-	const lost = Math.round(
-		((sweep ? (lostBase * 120) / 100 : lostBase) * (100 - newBoost)) / 100,
-	);
+  /**
+   * @function loseElo
+   * @param { number} oldElo
+   * @param { number} amountToLose
+   * @returns { number } The new elo to add to database
+   */
+  const loseElo = (oldElo, amountToLose) => {
+    const currentMilestone = getMilestone(oldElo);
+    const tentativeNewElo = oldElo - amountToLose;
 
-	const winstreak =
-		(await db.get(`${interaction.guildId}-winstreak.${winner.id}`)) || 0;
+    // If loss drops below current milestone, floor it at the milestone
+    const newElo = Math.max(tentativeNewElo, currentMilestone);
 
-	const winnerBase = 100 - differenceBoost;
-	const winnerNew = Math.round(
-		((((((sweep ? (winnerBase * 120) / 100 : winnerBase) * (100 + top16boost)) /
-			100) *
-			(100 + playedBoost)) /
-			100) *
-			(100 + (winstreak > 5 ? 5 : winstreak))) /
-			100,
-	);
+    return newElo;
+  };
 
-	if (loserELO >= 2000 && loserELO - lost < 2000) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 2000);
-	} else if (loserELO >= 1500 && loserELO - lost < 1500) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 1500);
-	} else if (loserELO >= 1200 && loserELO - lost < 1000) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 1000);
-	} else if (loserELO >= 900 && loserELO - lost < 700) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 700);
-	} else if (loserELO >= 600 && loserELO - lost < 400) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 400);
-	} else if (loserELO >= 300 && loserELO - lost < 200) {
-		await db.set(`${interaction.guildId}-elo.${loser.id}`, 200);
-	} else if (loserELO - lost >= 30) {
-		await db.sub(`${interaction.guildId}-elo.${loser.id}`, lost);
-	} else {
-		await db.set(
-			`${interaction.guildId}-elo.${loser.id}`,
-			loserELO >= 30 ? 30 : loserELO,
-		);
-	}
+  const currentLostElo = loseElo(loserElo, lost);
 
-	const currentELO = await db.add(
-		`${interaction.guildId}-elo.${winner.id}`,
-		winnerNew,
-	);
+  await db.set(`${interaction.guildId}.users.${loser}.elo`, currentLostElo);
 
-	const currentLostELO = await db.get(`${interaction.guildId}-elo.${loser.id}`);
+  const currentElo = await db.add(
+    `${interaction.guildId}.users.${winner}.elo`,
+    winnerNew,
+  );
 
-	if (currentELO > highestELO) {
-		await db.set(`${interaction.guildId}-${winner.id}-max_elo`, currentELO);
-	}
+  if (currentElo > highestElo) {
+    await db.set(
+      `${interaction.guildId}.users.${winner}.highestElo`,
+      currentElo,
+    );
+  }
 
-	await db.add(`${interaction.guildId}-games_played.${winner.id}`, 1);
-	await db.add(`${interaction.guildId}-games_won.${winner.id}`, 1);
-	const wk = await db.add(`${interaction.guildId}-winstreak.${winner.id}`, 1);
-	await db.add(`${interaction.guildId}-total_games_played.${winner.id}`, 1);
-	await db.add(`${interaction.guildId}-total_games_won.${winner.id}`, 1);
+  await db.add(`${interaction.guildId}.users.${winner}.seasonGames.played`, 1);
+  await db.add(`${interaction.guildId}.users.${winner}.seasonGames.won`, 1);
 
-	await db.add(`${interaction.guildId}-total_games_played.${loser.id}`, 1);
-	await db.add(`${interaction.guildId}-games_played.${loser.id}`, 1);
-	await db.set(`${interaction.guildId}-winstreak.${loser.id}`, 0);
-	const max_winstreak = await db.set(
-		`${interaction.guildId}-max_winstreak.${winner.id}`,
-		0,
-	);
+  await db.add(`${interaction.guildId}.users.${winner}.totalGames.played`, 1);
+  await db.add(`${interaction.guildId}.users.${winner}.totalGames.won`, 1);
 
-	if (wk > max_winstreak) {
-		await db.set(`${interaction.guildId}-max_winstreak.${winner.id}`, wk);
-	}
+  await db.add(`${interaction.guildId}.users.${loser}.seasonGames.played`, 1);
+  await db.add(`${interaction.guildId}.users.${loser}.totalGames.played`, 1);
 
-	const now = new Date();
-	now.setSeconds(now.getSeconds() + 5);
+  await db.set(`${interaction.guildId}.users.${loser}.highestWinstreak`, 0);
 
-	await interaction.editReply({
-		content: `Done!, <@${winner.id}> won ${winnerNew} amount of ELO and <@${
-			loser.id
-		}> lost ${loserELO - currentLostELO} amount of ELO. Thread will auto-delete ${time(now, TimestampStyles.RelativeTime)}`,
-	});
+  const newWinstreak = await db.add(
+    `${interaction.guildId}.users.${winner}.winstreak`,
+    1,
+  );
 
-	const row = interaction.message.components[0];
-	row.components = row.components.map((button) =>
-		ButtonBuilder.from(button).setDisabled(true),
-	);
+  const highestWinstreak = await db.get(
+    `${interaction.guildId}.users.${winner}.highestWinstreak`,
+  );
 
-	await interaction.message.edit({ components: [row] });
+  if (newWinstreak > highestWinstreak) {
+    await db.set(
+      `${interaction.guildId}.users.${winner}.highestWinstreak`,
+      newWinstreak,
+    );
+  }
 
-	try {
-		const finalMessageChannel = await interaction.guild?.channels.fetch(
-			"1262146766124613692",
-		);
-		await finalMessageChannel.send(
-			`<@${winner.id}> won against <@${loser.id}> (+${winnerNew}, ${currentLostELO - loserELO})`,
-		);
-		setTimeout(async () => {
-			await interaction.channel?.delete();
-		}, 5_000);
-	} catch (err) {
-		console.error(err);
-	}
+  const now = new Date();
+  now.setSeconds(now.getSeconds() + 5);
 
-	await db.add(`${interaction.guildId}-managers.${interaction.user?.id}`, 1);
+  await interaction.editReply({
+    content: `Done!, <@${winner}> won ${winnerNew} amount of ELO and <@${loser
+      }> lost ${loserElo - currentLostElo} amount of ELO. Thread will auto-delete ${time(now, TimestampStyles.RelativeTime)}`,
+  });
 
-	return true;
+  const row = setAllButtonsToDisabled(interaction.message.components[0]);
+
+  await interaction.message.edit({ components: [row] });
+
+  try {
+    const finalMessageChannel =
+			/** @type {import("discord.js").TextChannel} */ (
+        await interaction.guild?.channels.fetch(LOG_CHANNEL, { cache: true })
+      );
+
+    await finalMessageChannel?.send(
+      `<@${winner}> won against <@${loser}> (+${winnerNew}, ${loserElo - currentLostElo})`,
+    );
+
+    await db.delete(`${interaction.guildId}.duels.${interaction.channelId}`);
+
+    const hasRankedUp =
+      milestones.filter(
+        (milestone) => winnerElo < milestone && currentElo >= milestone,
+      ).length > 0;
+
+    if (hasRankedUp) {
+      finalMessageChannel?.send(
+        `<@${winner}> has ranked up to ${getRankText(currentElo)}`,
+      );
+    }
+
+    setTimeout(async () => {
+      await interaction.channel?.delete(
+        "The duel in this thread has already ended",
+      );
+    }, 5_000);
+  } catch (err) {
+    console.error(err);
+  }
+
+  await db.add(`${interaction.guildId}.managers.${manager}.games`, 1);
+
+  return true;
 };

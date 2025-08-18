@@ -4,17 +4,20 @@ import {
 	ButtonStyle,
 	Events,
 } from "discord.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
 import { CLASSES } from "../../utils/consts.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type { ButtonEvent } */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("random_draft_1v1")) return;
 
-	const [_, first, second, manager] = interaction.customId.split("-");
+	const { firstPlayer, manager } = /** @type { Duel } */ (
+		await db.get(`${interaction.guildId}.duels.${interaction.channel?.id}`)
+	);
 
 	if (interaction.user.id !== manager) {
 		interaction.reply({
@@ -24,35 +27,40 @@ export const run = async (interaction) => {
 		return;
 	}
 
-	const maps = (await db.get(`${interaction.guildId}-maps`)) ?? [];
+	const maps = /** @type { Maps } */ (
+		(await db.get(`${interaction.guildId}.maps`)) ?? []
+	);
 
-	const [type1, type2, type3] = CLASSES.sort(() => Math.random() - 0.5);
+	const [class1, class2, class3] = CLASSES.sort(() => Math.random() - 0.5);
 	const [map1, map2, map3] = maps.sort(() => Math.random() - 0.5);
 
-	await db.set(`${interaction.guildId}-${first}-${second}-round1`, {
-		type: type1,
-		map: map1,
-	});
-
-	await db.set(`${interaction.guildId}-${first}-${second}-round2`, {
-		type: type2,
-		map: map2,
-	});
-
-	await db.set(`${interaction.guildId}-${first}-${second}-round3`, {
-		type: type3,
-		map: map3,
-	});
+	await db.set(
+		`${interaction.guildId}.duels.${interaction.channel?.id}.rounds`,
+		/** @type { Rounds } */ ({
+			first: {
+				map: map1,
+				class: class1,
+			},
+			second: {
+				map: map2,
+				class: class2,
+			},
+			third: {
+				map: map3,
+				class: class3,
+			},
+		}),
+	);
 
 	const button = new ButtonBuilder()
-		.setCustomId(`ban_button-${first}-${second}-${interaction.id}`)
+		.setCustomId(`ban_button-${interaction.id}`)
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
 	const buttonActionRow = new ActionRowBuilder().addComponents(button);
 
 	await interaction.reply({
-		content: `Press this button to ban brawlers from each class <@${first}>`,
+		content: `Press this button to ban brawlers from each class <@${firstPlayer}>`,
 		components: [buttonActionRow],
 	});
 

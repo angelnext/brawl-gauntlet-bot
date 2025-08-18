@@ -4,7 +4,7 @@ import {
 	ButtonStyle,
 	Events,
 } from "discord.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
 
 export const on = Events.InteractionCreate;
@@ -13,11 +13,13 @@ export const run = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!interaction.customId.startsWith("ban_modal")) return;
 
-	const [_, draftee1, draftee2] = interaction.customId.split("-");
+	const { firstPlayer, secondPlayer } = /** @type { Duel } */ (
+		await db.get(`${interaction.guildId}.duels.${interaction.channel?.id}`)
+	);
 
-	if (interaction.user.id !== draftee1) {
+	if (interaction.user.id !== firstPlayer) {
 		await interaction.reply({
-			content: `Only <@${draftee1}> can select this`,
+			content: `Only <@${firstPlayer}> can select this`,
 			ephemeral: true,
 		});
 		return;
@@ -30,31 +32,29 @@ export const run = async (interaction) => {
 	const ban3 = interaction.fields.getTextInputValue("third_ban");
 
 	await db.push(
-		`${interaction.guildId}-${draftee1}-${draftee2}-round1.bans`,
+		`${interaction.guildId}.duels.${interaction.channel?.id}.rounds.first.bans`,
 		ban1,
 	);
 
 	await db.push(
-		`${interaction.guildId}-${draftee1}-${draftee2}-round2.bans`,
+		`${interaction.guildId}.duels.${interaction.channel?.id}.rounds.second.bans`,
 		ban2,
 	);
 
 	await db.push(
-		`${interaction.guildId}-${draftee1}-${draftee2}-round3.bans`,
+		`${interaction.guildId}.duels.${interaction.channel?.id}.rounds.third.bans`,
 		ban3,
 	);
 
 	const button = new ButtonBuilder()
-		.setCustomId(
-			`1ban_button-${draftee1}-${draftee2}-${interaction.message.id}`,
-		)
+		.setCustomId(`1ban_button-${interaction.id}`)
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
 	const actionRow = new ActionRowBuilder().addComponents(button);
 
 	await interaction.editReply({
-		content: `Press this button to ban brawlers from each class <@${draftee2}>`,
+		content: `Press this button to ban brawlers from each class <@${secondPlayer}>`,
 		components: [actionRow],
 	});
 

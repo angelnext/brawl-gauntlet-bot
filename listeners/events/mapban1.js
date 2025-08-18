@@ -5,7 +5,7 @@ import {
 	Events,
 } from "discord.js";
 import { db } from "../../utils/database.js";
-import { embeds } from "../../utils/embeds.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
@@ -13,11 +13,12 @@ export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("1mapban")) return;
 
-	const [_, draftee1, draftee2] = interaction.customId.split("-");
-
-	if (interaction.user.id !== draftee2) {
+	const { firstPlayer, secondPlayer } = /** @type { Duel } */ (
+		await db.get(`${interaction.guildId}.duels.${interaction.channel?.id}`)
+	);
+	if (interaction.user.id !== secondPlayer) {
 		await interaction.reply({
-			content: `Only <@${draftee2}> can select this`,
+			content: `Only <@${secondPlayer}> can select this`,
 			ephemeral: true,
 		});
 		return;
@@ -25,20 +26,21 @@ export const run = async (interaction) => {
 
 	await interaction.deferReply();
 
+	const ban = interaction.values[0];
 	await db.push(
-		`${interaction.guildId}-${draftee1}-${draftee2}-map_bans`,
-		interaction.values[0],
+		`${interaction.guildId}.duels.${interaction.channel?.id}.mapBans`,
+		ban,
 	);
 
 	const button = new ButtonBuilder()
-		.setCustomId(`ban_button-${draftee1}-${draftee2}-${interaction.id}`)
+		.setCustomId(`ban_button-${interaction.id}`)
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
 	const actionRow = new ActionRowBuilder().addComponents(button);
 
 	await interaction.editReply({
-		content: `Press this button to ban brawlers from each class <@${draftee1}>`,
+		content: `Press this button to ban brawlers from each class <@${firstPlayer}>`,
 		components: [actionRow],
 	});
 
@@ -46,7 +48,7 @@ export const run = async (interaction) => {
 		content: "",
 		embeds: [
 			embeds.success(
-				`The map **${interaction.values[0]}** has been banned by <@${interaction.user.id}>`,
+				`The map **${ban}** has been banned by <@${interaction.user.id}>`,
 			),
 		],
 		components: [],

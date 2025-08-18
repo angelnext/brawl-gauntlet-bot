@@ -5,39 +5,71 @@ import {
 	EmbedBuilder,
 	Events,
 } from "discord.js";
-import { embeds } from "../../utils/embeds.js"
+import * as embeds from "../../utils/embeds.js";
+import { db } from "../../utils/database.js";
+import { MANAGER_ROLE } from "../../utils/consts.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {ButtonEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("eval_select")) return;
 
-  if (!interaction.member.roles.cache.has("1262159706047119401")) {
-    interaction.reply({ embeds: [embeds.error("You aren't a Gauntlet Manager and therefore cannot evaluate a game")], ephemeral: true })
-    return;
-  }
+	if (!interaction.member.roles.cache.has(MANAGER_ROLE)) {
+		interaction.reply({
+			embeds: [
+				embeds.error(
+					"You aren't a Gauntlet Manager and therefore cannot evaluate a game",
+				),
+			],
+			ephemeral: true,
+		});
+		return;
+	}
 
-	const [_, draftee1, draftee2] = interaction.customId.split("-"); 
+	const { firstPlayer, secondPlayer } = /** @type { Duel } */ (
+		await db.get(`${interaction.guildId}.duels.${interaction.channelId}`)
+	);
 
-  const loser = interaction.values[0].split("-")[0] === draftee1 ? draftee2 : draftee1
+	const winner = interaction.values[0].split("-")[0];
+	const loser = winner === firstPlayer ? secondPlayer : firstPlayer;
 
-  const embed = new EmbedBuilder().setDescription("Was it a sweep?").setColor(0xffffff)
-  const yesButton = new ButtonBuilder()
-    .setCustomId(`eval_confirm-${interaction.values[0].split("-")[0]}-${loser}-yes`)
-    .setLabel("Yes")
-    .setStyle(ButtonStyle.Primary)
-  const noButton = new ButtonBuilder()
-    .setCustomId(`eval_confirm-${interaction.values[0].split("-")[0]}-${loser}-no`)
-    .setLabel("No")
-    .setStyle(ButtonStyle.Secondary)
+	await db.set(
+		`${interaction.guildId}.duels.${interaction.channelId}.winner`,
+		winner,
+	);
+	await db.set(
+		`${interaction.guildId}.duels.${interaction.channelId}.loser`,
+		loser,
+	);
 
-  const selectRow = new ActionRowBuilder().addComponents(yesButton, noButton)
+	const embed = new EmbedBuilder()
+		.setDescription("Was it a sweep?")
+		.setColor(0xffffff);
+	const yesButton = new ButtonBuilder()
+		.setCustomId(`eval_confirm-yes`)
+		.setLabel("Yes")
+		.setStyle(ButtonStyle.Primary);
+	const noButton = new ButtonBuilder()
+		.setCustomId(`eval_confirm-no`)
+		.setLabel("No")
+		.setStyle(ButtonStyle.Secondary);
 
-  await interaction.reply({ embeds: [embed], components: [selectRow] })
+	const selectRow = new ActionRowBuilder().addComponents(yesButton, noButton);
 
-  await interaction.message.edit({ components: [], embeds: [new EmbedBuilder().setColor(0xffffff).setDescription(`Selected <@${interaction.values[0].split("-")[0]}> as winner`)] })
+	await interaction.reply({ embeds: [embed], components: [selectRow] });
+
+	await interaction.message.edit({
+		components: [],
+		embeds: [
+			new EmbedBuilder()
+				.setColor(0xffffff)
+				.setDescription(
+					`Selected <@${interaction.values[0].split("-")[0]}> as winner`,
+				),
+		],
+	});
 
 	return true;
 };
-
