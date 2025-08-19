@@ -5,4 +5,4 @@ RUN apk add --no-cache python3 py3-pip make g++ \
 WORKDIR /app
 COPY . .
 RUN npm install
-CMD ["node", "."]
+CMD ["npm", "start"]
