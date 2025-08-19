@@ -1,7 +1,11 @@
 {
+  "$schema": "https://www.schemastore.org/package.json",
   "name": "brawlgauntlet",
   "type": "module",
   "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=.env ."
+  },
   "dependencies": {
     "@hono/node-server": "^1.18.1",
     "@rubiks/rubiks": "npm:@jsr/rubiks__rubiks@^1.2.9",

@@ -6,9 +6,7 @@ import { EmbedBuilder } from "discord.js";
  * @returns {EmbedBuilder} The embed with the success message
  * */
 export const success = (message) =>
-	new EmbedBuilder()
-		.setDescription(`:white_check_mark: ${message}`)
-		.setColor(0xffffff);
+	new EmbedBuilder().setDescription(`${message}`).setColor(0xffffff);
 
 /**
  * @function error Embed Builder for the common error message

@@ -8,7 +8,7 @@ export const getRankIcon = (elo) => {
 	if (elo >= 1500) return "<:mythical:1310729943428370512>";
 	if (elo >= 1000) return "<:legendary:1310729946414448740>";
 	if (elo >= 700) return "<:mythic:1310745459735920771>";
-	if (elo >= 400) return "Gold <:gold:1310729947618218066>";
+	if (elo >= 400) return "<:gold:1310729947618218066>";
 	if (elo >= 200) return "<:silver:1310729940760531015>";
 	return "<:bronze:1310729890340929636>";
 };

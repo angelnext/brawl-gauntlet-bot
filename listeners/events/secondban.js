@@ -5,6 +5,7 @@ import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("secondban")) return;
@@ -30,7 +31,8 @@ export const run = async (interaction) => {
 			ban,
 		)
 	);
-	const classBans = server.duels?.[interaction.channel?.id].classBans || [];
+	const classBans =
+		server.duels?.[interaction.channel?.id || 0].classBans || [];
 
 	const classMenu = new StringSelectMenuBuilder()
 		.setCustomId(`class_select-${interaction.id}`)
@@ -41,7 +43,9 @@ export const run = async (interaction) => {
 			})),
 		);
 
-	const actionRow = new ActionRowBuilder().addComponents(classMenu);
+	const actionRow = /** @type {ActionRowBuilder<StringSelectMenuBuilder>} */ (
+		new ActionRowBuilder().addComponents(classMenu)
+	);
 
 	await interaction.editReply({
 		content: `Select a Class to play <@${firstPlayer}>`,

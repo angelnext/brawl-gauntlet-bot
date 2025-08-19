@@ -1,14 +1,14 @@
 import {
+	ActionRowBuilder,
 	ButtonBuilder,
+	ButtonStyle,
 	EmbedBuilder,
 	Events,
-	ButtonStyle,
-	ActionRowBuilder,
 } from "discord.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("cancel_draft")) return;
@@ -22,7 +22,9 @@ export const run = async (interaction) => {
 		.setLabel("Yes, Cancel Game")
 		.setStyle(ButtonStyle.Danger);
 
-	const selectRow = new ActionRowBuilder().addComponents(yesButton);
+	const selectRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(yesButton)
+	);
 
 	await interaction.reply({ embeds: [embed], components: [selectRow] });
 };

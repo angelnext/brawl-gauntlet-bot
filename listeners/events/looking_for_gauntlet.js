@@ -5,9 +5,10 @@ import {
 	EmbedBuilder,
 	Events,
 	Message,
+	TextChannel,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.MessageCreate;
 
@@ -17,6 +18,10 @@ export const run = async (message) => {
 	const isInGame = await db.get(
 		`${message.guildId}.users.${message.author.id}.inGame`,
 	);
+
+	if (!message.channel.isSendable()) {
+		return true;
+	}
 
 	if (isInGame) {
 		await message.delete();
@@ -43,7 +48,9 @@ export const run = async (message) => {
 		.setLabel("Accept Challenge")
 		.setStyle(ButtonStyle.Success);
 
-	const acceptRow = new ActionRowBuilder().addComponents(acceptButton);
+	const acceptRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(acceptButton)
+	);
 
 	await message.channel.send({ embeds: [embed], components: [acceptRow] });
 

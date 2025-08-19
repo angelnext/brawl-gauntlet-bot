@@ -1,11 +1,11 @@
-import { Events } from "discord.js";
+import { Events, GuildMember } from "discord.js";
+import { MANAGER_ROLE } from "../../utils/consts.js";
 import { db } from "../../utils/database.js";
 import * as embeds from "../../utils/embeds.js";
-import { MANAGER_ROLE } from "../../utils/consts.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("cancel_proceed")) return;
@@ -14,7 +14,9 @@ export const run = async (interaction) => {
 		await db.get(`${interaction.guildId}.duels.${interaction.channel?.id}`)
 	);
 
-	if (!interaction.member.roles.cache.has(MANAGER_ROLE)) {
+	const member = /** @type {GuildMember} */ (interaction.member);
+
+	if (!member.roles.cache.has(MANAGER_ROLE)) {
 		interaction.reply({
 			embeds: [
 				embeds.error(

@@ -9,6 +9,7 @@ import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("1mapban")) return;
@@ -37,7 +38,9 @@ export const run = async (interaction) => {
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
-	const actionRow = new ActionRowBuilder().addComponents(button);
+	const actionRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(button)
+	);
 
 	await interaction.editReply({
 		content: `Press this button to ban brawlers from each class <@${firstPlayer}>`,

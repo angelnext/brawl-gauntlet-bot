@@ -2,17 +2,16 @@ import {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
-	Embed,
 	EmbedBuilder,
 	Events,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
-import { db } from "../../utils/database.js";
 import { CLASSES } from "../../utils/consts.js";
+import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type { ModalEvent } */
+/** @type { BotEvent } */
 export const run = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!interaction.customId.startsWith("1ban_modal")) return;
@@ -56,7 +55,7 @@ export const run = async (interaction) => {
 		(await db.get(`${interaction.guildId}.maps`)) ?? []
 	);
 
-	const { rounds } = server.duels?.[interaction.channel?.id] || {};
+	const { rounds } = server.duels?.[interaction.channel?.id || ""] || {};
 
 	const thirdRound = /** @type { Round } */ ({
 		class:
@@ -97,9 +96,8 @@ export const run = async (interaction) => {
 		.setLabel("Cancel Game")
 		.setStyle(ButtonStyle.Danger);
 
-	const evalRow = new ActionRowBuilder().addComponents(
-		evalButton,
-		cancelButton,
+	const evalRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(evalButton, cancelButton)
 	);
 
 	await interaction.editReply({ embeds: [draftEmbed], components: [evalRow] });

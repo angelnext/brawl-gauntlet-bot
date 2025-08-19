@@ -4,11 +4,12 @@ import {
 	ButtonStyle,
 	Events,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
 import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isModalSubmit()) return;
 	if (!interaction.customId.startsWith("ban_modal")) return;
@@ -51,7 +52,9 @@ export const run = async (interaction) => {
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
-	const actionRow = new ActionRowBuilder().addComponents(button);
+	const actionRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(button)
+	);
 
 	await interaction.editReply({
 		content: `Press this button to ban brawlers from each class <@${secondPlayer}>`,

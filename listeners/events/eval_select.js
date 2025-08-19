@@ -11,7 +11,7 @@ import { MANAGER_ROLE } from "../../utils/consts.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("eval_select")) return;

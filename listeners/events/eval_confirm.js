@@ -12,7 +12,7 @@ import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
   if (!interaction.isButton()) return;
   if (!interaction.customId.startsWith("eval_confirm")) return;

@@ -4,14 +4,15 @@ import {
 	ButtonStyle,
 	EmbedBuilder,
 	Events,
+	TextChannel,
 } from "discord.js";
+import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 import { db } from "../../utils/database.js";
 import * as embeds from "../../utils/embeds.js";
-import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("accept_gauntlet")) return;
@@ -40,7 +41,9 @@ export const run = async (interaction) => {
 
 	const channelId = await db.get(`${interaction.guildId}.draftChannel`);
 
-	const channel = await interaction.guild?.channels.fetch(channelId);
+	const channel = /** @type {TextChannel} */ (
+		await interaction.guild?.channels.fetch(channelId)
+	);
 
 	const thread = await channel?.threads.create({
 		name: `${member?.user.username}-vs-${interaction.user.username}`,
@@ -60,7 +63,9 @@ export const run = async (interaction) => {
 		.setLabel("Manage Game")
 		.setStyle(ButtonStyle.Success);
 
-	const draftRow = new ActionRowBuilder().addComponents(draftButton);
+	const draftRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(draftButton)
+	);
 
 	await thread.send(`${member?.user} vs ${interaction.user}`);
 	await thread.send({ embeds: [embed], components: [draftRow] });

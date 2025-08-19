@@ -1,8 +1,4 @@
-import type {
-	ButtonInteraction,
-	ChatInputCommandInteraction,
-	ModalSubmitInteraction,
-} from "discord.js";
+import type { ChatInputCommandInteraction, Interaction } from "discord.js";
 
 declare global {
 	type SlashCommand = (
@@ -18,13 +14,7 @@ declare global {
 		args: U,
 	) => Promise<T>;
 
-	type ButtonEvent = (
-		interaction: ButtonInteraction,
-	) => Promise<boolean | void>;
-
-	type ModalEvent = (
-		interaction: ModalSubmitInteraction,
-	) => Promise<boolean | void>;
+	type BotEvent = (interaction: Interaction) => Promise<boolean | undefined>;
 
 	type Server = {
 		duels?: Duels;

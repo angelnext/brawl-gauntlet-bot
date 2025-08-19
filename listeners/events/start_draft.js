@@ -4,20 +4,23 @@ import {
 	ButtonStyle,
 	EmbedBuilder,
 	Events,
+	GuildMember,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
-import { db } from "../../utils/database.js";
-import { MANAGER_ROLE } from "../../utils/consts.js";
 import { setAllButtonsToDisabled } from "../../utils/buttons.js";
+import { MANAGER_ROLE } from "../../utils/consts.js";
+import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type { ButtonEvent } */
+/** @type { BotEvent } */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("start_draft")) return;
 
-	if (!interaction.member.roles.cache.has(MANAGER_ROLE)) {
+	const member = /** @type {GuildMember} */ (interaction.member);
+
+	if (!member.roles.cache.has(MANAGER_ROLE)) {
 		interaction.reply({
 			embeds: [
 				embeds.error(
@@ -73,10 +76,12 @@ export const run = async (interaction) => {
 		.setLabel("Cancel Game")
 		.setStyle(ButtonStyle.Danger);
 
-	const buttons = new ActionRowBuilder().addComponents(
-		fullDraft1v1Button,
-		randomDraft1v1Button,
-		cancelButton,
+	const buttons = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(
+			fullDraft1v1Button,
+			randomDraft1v1Button,
+			cancelButton,
+		)
 	);
 
 	await interaction.followUp({ embeds: [embed], components: [buttons] });

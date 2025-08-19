@@ -4,6 +4,7 @@ import { log } from "../../utils/logger.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isCommand()) return;
 

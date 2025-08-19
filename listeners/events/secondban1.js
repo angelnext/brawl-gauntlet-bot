@@ -4,6 +4,7 @@ import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("1secondban")) return;
@@ -40,7 +41,9 @@ export const run = async (interaction) => {
 				.map((m) => ({ label: m, value: m })),
 		);
 
-	const actionRow = new ActionRowBuilder().addComponents(mapMenu);
+	const actionRow = /** @type {ActionRowBuilder<StringSelectMenuBuilder>} */ (
+		new ActionRowBuilder().addComponents(mapMenu)
+	);
 
 	await interaction.editReply({
 		content: `Select Map to Ban <@${firstPlayer}>`,

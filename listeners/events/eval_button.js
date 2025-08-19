@@ -1,23 +1,26 @@
 import {
 	ActionRowBuilder,
-	ButtonBuilder,
 	EmbedBuilder,
 	Events,
+	GuildMember,
 	StringSelectMenuBuilder,
 	StringSelectMenuOptionBuilder,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
-import { db } from "../../utils/database.js";
+import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 import { MANAGER_ROLE } from "../../utils/consts.js";
+import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type {ButtonEvent} */
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("eval_button")) return;
 
-	if (!interaction.member.roles.cache.has(MANAGER_ROLE)) {
+	const member = /** @type {GuildMember} */ (interaction.member);
+
+	if (!member.roles.cache.has(MANAGER_ROLE)) {
 		interaction.reply({
 			embeds: [
 				embeds.error(
@@ -33,8 +36,8 @@ export const run = async (interaction) => {
 		await db.get(`${interaction.guildId}.duels.${interaction.channelId}`)
 	);
 
-	const d1 = await interaction.guild?.members.fetch(firstPlayer);
-	const d2 = await interaction.guild?.members.fetch(secondPlayer);
+	const d1 = await interaction.guild?.members.fetch(firstPlayer ?? "");
+	const d2 = await interaction.guild?.members.fetch(secondPlayer ?? "");
 
 	const embed = new EmbedBuilder()
 		.setDescription("Select Winner")
@@ -50,14 +53,13 @@ export const run = async (interaction) => {
 				.setValue(`${secondPlayer}-${interaction.id}`),
 		);
 
-	const selectRow = new ActionRowBuilder().addComponents(select);
+	const selectRow = /** @type {ActionRowBuilder<StringSelectMenuBuilder>} */ (
+		new ActionRowBuilder().addComponents(select)
+	);
 
 	await interaction.reply({ embeds: [embed], components: [selectRow] });
 
-	const row = interaction.message.components[0];
-	row.components = row.components.map((button) =>
-		ButtonBuilder.from(button).setDisabled(true),
-	);
+	const row = setAllButtonsToDisabled(interaction.message.components[0]);
 
 	await interaction.message.edit({ components: [row] });
 

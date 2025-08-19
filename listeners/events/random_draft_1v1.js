@@ -4,13 +4,14 @@ import {
 	ButtonStyle,
 	Events,
 } from "discord.js";
-import * as embeds from "../../utils/embeds.js";
-import { db } from "../../utils/database.js";
+import { setAllButtonsToDisabled } from "../../utils/buttons.js";
 import { CLASSES } from "../../utils/consts.js";
+import { db } from "../../utils/database.js";
+import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
-/** @type { ButtonEvent } */
+/** @type { BotEvent } */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("random_draft_1v1")) return;
@@ -57,19 +58,16 @@ export const run = async (interaction) => {
 		.setLabel("Start the bans")
 		.setStyle(ButtonStyle.Danger);
 
-	const buttonActionRow = new ActionRowBuilder().addComponents(button);
+	const buttonActionRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (
+		new ActionRowBuilder().addComponents(button)
+	);
 
 	await interaction.reply({
 		content: `Press this button to ban brawlers from each class <@${firstPlayer}>`,
 		components: [buttonActionRow],
 	});
 
-	const row = interaction.message.components[0];
-	row.components = row.components.map((button) => {
-		const b = ButtonBuilder.from(button);
-		if (b.data.custom_id.startsWith("cancel_draft")) return b;
-		return b.setDisabled(true);
-	});
+	const row = setAllButtonsToDisabled(interaction.message.components[0]);
 
 	await interaction.message.edit({ components: [row] });
 

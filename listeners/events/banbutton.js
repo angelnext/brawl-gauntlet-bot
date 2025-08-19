@@ -10,6 +10,7 @@ import { db } from "../../utils/database.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("ban_button")) return;

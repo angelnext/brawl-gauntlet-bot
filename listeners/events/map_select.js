@@ -5,6 +5,7 @@ import * as embeds from "../../utils/embeds.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isStringSelectMenu()) return;
 	if (!interaction.customId.startsWith("map_select")) return;
@@ -44,7 +45,9 @@ export const run = async (interaction) => {
 			})),
 		);
 
-	const actionRow = new ActionRowBuilder().addComponents(classMenu);
+	const actionRow = /** @type {ActionRowBuilder<StringSelectMenuBuilder>} */ (
+		new ActionRowBuilder().addComponents(classMenu)
+	);
 
 	await interaction.editReply({
 		content: `Select a Class to play <@${secondPlayer}>`,

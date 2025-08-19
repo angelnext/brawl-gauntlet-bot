@@ -1,3 +1,3 @@
-import { rubiks, withDates } from "@rubiks/rubiks";
+import { nerdIcons, rubiks, withDates } from "@rubiks/rubiks";
 
-export const log = rubiks().use(withDates);
+export const log = rubiks().use(withDates).use(nerdIcons());

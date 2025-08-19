@@ -4,7 +4,9 @@ import {
 	Client,
 	Collection,
 	ContextMenuCommandBuilder,
+	ContextMenuCommandInteraction,
 	Events,
+	PrimaryEntryPointCommandInteraction,
 	SlashCommandBuilder,
 } from "discord.js";
 import fg from "fast-glob";
@@ -12,7 +14,7 @@ import { log } from "./logger.js";
 
 /**
  * @callback runFn
- * @param {ChatInputCommandInteraction | Events} options
+ * @param {ChatInputCommandInteraction | ContextMenuCommandInteraction | PrimaryEntryPointCommandInteraction | Events} options
  * @returns {Promise<boolean>}
  */
 

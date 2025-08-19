@@ -10,6 +10,7 @@ import { db } from "../../utils/database.js";
 
 export const on = Events.InteractionCreate;
 
+/** @type {BotEvent} */
 export const run = async (interaction) => {
 	if (!interaction.isButton()) return;
 	if (!interaction.customId.startsWith("1ban_button")) return;
@@ -50,14 +51,14 @@ export const run = async (interaction) => {
 		.setLabel(thirdRoundClass)
 		.setStyle(TextInputStyle.Short);
 
-	const firstBanActionRow = new ActionRowBuilder().addComponents(
-		firstBanTextInput,
+	const firstBanActionRow = /** @type {ActionRowBuilder<TextInputBuilder>} */ (
+		new ActionRowBuilder().addComponents(firstBanTextInput)
 	);
-	const secondBanActionRow = new ActionRowBuilder().addComponents(
-		secondBanTextInput,
+	const secondBanActionRow = /** @type {ActionRowBuilder<TextInputBuilder>} */ (
+		new ActionRowBuilder().addComponents(secondBanTextInput)
 	);
-	const thirdBanActionRow = new ActionRowBuilder().addComponents(
-		thirdBanTextInput,
+	const thirdBanActionRow = /** @type {ActionRowBuilder<TextInputBuilder>} */ (
+		new ActionRowBuilder().addComponents(thirdBanTextInput)
 	);
 
 	brawlBanModal.addComponents(
